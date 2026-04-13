@@ -1,0 +1,69 @@
+SCALE CUBE EXPORTER — CLAUDE CODE BRIEFING
+===========================================
+
+PROJECT GOAL
+------------
+A portable Windows desktop app (.exe) that:
+1. Lets the user browse to an OBJ file
+2. Choose a cube size: 1mm, 1cm, or 1m
+3. Runs Blender 3.6 headless to import the OBJ, place a reference
+   scale cube beneath it, and export a new OBJ to a "with_cube"
+   subfolder next to the original
+
+KEY TECHNICAL DETAILS
+---------------------
+- Blender path: C:\Program Files\Blender Foundation\Blender 3.6\blender.exe
+- OBJ files are authored in MILLIMETERS
+  → On import, scale is set to 0.001 and transform_apply(scale=True) is used
+  → Blender 3.6 does NOT support global_scale on import_scene.obj
+- Gap between model bottom and cube top: 10mm (0.01m)
+- Cube is placed centred under the model's XY bounding box
+- Output folder: "with_cube" subfolder next to the input OBJ
+- Output filename: identical to input filename
+- JPG/PNG/TIF textures are copied into the with_cube folder
+- The exported MTL is patched so texture paths are filename-only (no directory prefix)
+- Blender operators used (3.6 legacy):
+    import: bpy.ops.import_scene.obj(filepath=path)
+    export: bpy.ops.export_scene.obj(filepath=path, use_selection=True, ...)
+
+FILES IN THIS FOLDER
+--------------------
+gui.py              — tkinter desktop GUI, calls Blender as a subprocess
+blender_script.py   — Blender Python script run headless via --background --python
+                      Accepts args after --:  1) input OBJ path  2) cube size in meters
+
+CURRENT PROBLEM TO SOLVE
+-------------------------
+PyInstaller is not correctly bundling blender_script.py next to the exe.
+The app looks for blender_script.py relative to sys.executable (the exe),
+but PyInstaller is not placing it there.
+
+The fix needed:
+- blender_script.py must be a DATA file bundled alongside the exe in the
+  dist/ScaleCubeExporter/ folder (not inside the exe archive)
+- In gui.py, APP_DIR is already set correctly:
+    if getattr(sys, 'frozen', False):
+        APP_DIR = os.path.dirname(sys.executable)
+    else:
+        APP_DIR = os.path.dirname(os.path.abspath(__file__))
+- The .spec file needs to correctly declare blender_script.py as a datas entry
+  so PyInstaller places it next to the exe in the output folder
+
+WHAT TO BUILD
+-------------
+1. Fix the PyInstaller spec / build process so blender_script.py lands
+   next to ScaleCubeExporter.exe in dist/ScaleCubeExporter/
+2. Produce a working BUILD.bat that compiles everything cleanly on Windows
+   with PyInstaller 6.x and Python 3.12
+3. The final dist/ScaleCubeExporter/ folder should be fully portable —
+   move it anywhere and the exe works as long as Blender 3.6 is installed
+
+SETTINGS PERSISTENCE
+--------------------
+The app saves last-used OBJ path, Blender exe path, and cube size choice
+to a settings.json file in the same folder as the exe.
+
+GUI STYLE
+---------
+Dark theme: bg #0d0d0d, accent #e8ff00 (yellow), green log text #44ff99
+Font: Courier New throughout
