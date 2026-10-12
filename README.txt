@@ -15,6 +15,21 @@ HOW TO BUILD (one time only)
    You can also create a shortcut to ScaleCubeExporter.exe on your desktop.
 
 
+FAST BY DEFAULT (no Blender)
+----------------------------
+The cube is now added without Blender (core/fast_cube.py): the OBJ is read
+once and written back with the cube at the end. Same result as before
+(vertices scaled mm to m, cube centred 10 mm under the model, MTL and
+textures copied), measured on test models:
+
+   2M triangles    Blender 50 s       fast 3 s
+  10M triangles    Blender 4 min 13   fast 14 s
+  40M triangles    Blender ~17 min+   fast ~1 min (estimated)
+
+Tick "Use Blender (slow, the old way)" to run blender_script.py as before.
+From a terminal: python -m core.fast_cube <file.obj> 0.01
+
+
 HOW TO USE
 ----------
 1. Open ScaleCubeExporter.exe

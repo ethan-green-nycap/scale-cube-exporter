@@ -13,6 +13,7 @@ import flet as ft
 from flet import Clipboard
 
 from core.exporter import CUBE_SIZES, DEFAULT_BLENDER, process_obj
+from core.fast_cube import add_scale_cube
 from ui.file_picker import pick_obj_files, pick_exe_file
 
 
@@ -117,6 +118,12 @@ async def build_app(page: ft.Page):
         border_color=ft.Colors.WHITE10,
         focused_border_color=ft.Colors.TEAL_400,
         expand=True,
+    )
+
+    use_blender_box = ft.Checkbox(
+        label="Use Blender (slow, the old way)",
+        value=False,
+        label_style=ft.TextStyle(size=11),
     )
 
     # Blender exe picker (native dialog in thread)
@@ -285,7 +292,10 @@ async def build_app(page: ft.Page):
         cube_label = cube_dropdown.value
         cube_size = CUBE_SIZES[cube_label]
 
-        if not blender_exe.is_file():
+        # The fast method needs no Blender (core/fast_cube.py). Blender stays as
+        # a fallback: tick "Use Blender (slow)" to run blender_script.py as before.
+        use_blender = use_blender_box.value
+        if use_blender and not blender_exe.is_file():
             log(f"Blender not found: {blender_exe}", "", "error")
             status_bar.value = "Blender not found"
             status_bar.color = ft.Colors.RED_400
@@ -295,7 +305,7 @@ async def build_app(page: ft.Page):
             push_update()
             return
 
-        if not BLENDER_SCRIPT.is_file():
+        if use_blender and not BLENDER_SCRIPT.is_file():
             log(f"blender_script.py not found: {BLENDER_SCRIPT}", "", "error")
             status_bar.value = "blender_script.py missing"
             status_bar.color = ft.Colors.RED_400
@@ -306,7 +316,7 @@ async def build_app(page: ft.Page):
             return
 
         log(f"Cube size: {cube_label}", "", "info")
-        log(f"Blender: {blender_exe}", "", "info")
+        log("Method: Blender" if use_blender else "Method: fast (no Blender)", "", "info")
         push_update()
 
         for i, item in enumerate(obj_items):
@@ -322,13 +332,16 @@ async def build_app(page: ft.Page):
                 log(message, detail, level)
                 push_update()
 
-            result = process_obj(
-                item.obj_path,
-                cube_size,
-                blender_exe,
-                BLENDER_SCRIPT,
-                on_progress=on_progress,
-            )
+            if use_blender:
+                result = process_obj(
+                    item.obj_path,
+                    cube_size,
+                    blender_exe,
+                    BLENDER_SCRIPT,
+                    on_progress=on_progress,
+                )
+            else:
+                result = add_scale_cube(item.obj_path, cube_size, on_progress=on_progress)
 
             if "error" in result:
                 item.set_error(result["error"])
@@ -366,6 +379,7 @@ async def build_app(page: ft.Page):
                     controls=[blender_field, blender_browse_btn],
                     vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
+                use_blender_box,
                 ft.Container(height=12),
                 ft.Text("OBJ Files", size=13, color=ft.Colors.WHITE54),
                 ft.Container(height=6),
